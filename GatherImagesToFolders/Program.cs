@@ -1,6 +1,11 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace GatherImagesToFolders
 {
@@ -8,11 +13,15 @@ namespace GatherImagesToFolders
 	{
 		private static string path_to_csv = @"D:\Github\GatherImagesToFolders\GatherImagesToFolders\data.csv";
 		private static string path_to_img_folder = @"D:\Github\102 Category Flower\jpg";
+		private static string path_to_categories_json = @"D:\Github\GatherImagesToFolders\GatherImagesToFolders\cat_to_name.json";
+		private static TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+
 
 		static void Main(string[] args)
 		{
-			var data = ReadCsv();
-			GatherImages(data);
+			var data1 = ReadCsv();
+			var data2 = ReadJson();
+			GatherImages(data1, data2);
 			Console.ReadKey();
 		}
 
@@ -31,7 +40,19 @@ namespace GatherImagesToFolders
 			return list;
 		}
 
-		static void GatherImages(List<KeyValuePair<int, int>> list)
+		static List<KeyValuePair<int, string>> ReadJson()
+		{
+			var jsonStr = File.ReadAllText(path_to_categories_json);
+			var jsonObj = JObject.Parse(jsonStr);
+			List<KeyValuePair<int, string>> list = new List<KeyValuePair<int, string>>();
+			foreach (var property in jsonObj.Properties())
+			{
+				list.Add(new KeyValuePair<int, string>(Convert.ToInt32(property.Name), property.Value.ToString()));
+			}
+			return list;
+		}
+
+		static void GatherImages(List<KeyValuePair<int, int>> listNumericLabel, List<KeyValuePair<int, string>> listTextLabel)
 		{
 			DirectoryInfo dir = new DirectoryInfo(path_to_img_folder);
 			FileInfo[] files = dir.GetFiles();
@@ -43,7 +64,9 @@ namespace GatherImagesToFolders
 					string idStr = Path.GetFileNameWithoutExtension(item.FullName).Split('_')[1];
 					// "00001" => 1
 					int id = Convert.ToInt32(idStr);
-					string folderName = "" + list[id - 1].Value;
+					int folderID = listNumericLabel.Where(pair => pair.Key == id).FirstOrDefault().Value;
+					var result = listTextLabel.Where(pair => pair.Key == folderID).FirstOrDefault().Value;
+					string folderName = textInfo.ToTitleCase(result);
 					string folderPath = path_to_img_folder + "\\" + folderName;
 					string newPath = folderPath + "\\" + item.Name;
 					if (!Directory.Exists(folderPath))
